@@ -21,6 +21,7 @@ import atexit
 import json
 import multiprocessing
 import multiprocessing.dummy
+import os
 import queue
 import random
 import shutil
@@ -36,6 +37,7 @@ from official.staging.microbenchmarks import constants
 # Leave some headroom so the run manager doesn't contend with the benchmarks.
 _NUM_CORES = multiprocessing.cpu_count() - 2
 _TIMEOUT = 10 * 60
+MODELS_PATH = os.path.abspath(__file__).split("models/official") + "models"
 
 
 class BaseScheduler(object):
@@ -189,9 +191,10 @@ class Runner(object):
     _, result_path = tempfile.mkstemp(prefix=self.result_dir + "/",
                                       suffix=".json")
     try:
-      cmd = self.get_cmd(task, result_path)
-      cmd = ("CUDA_VISIBLE_DEVICES='{}' taskset --cpu-list {}-{} {}"
-             .format(cuda_devices, start, start + task.num_cores, cmd))
+      cmd = (
+          "CUDA_VISIBLE_DEVICES='{}' PYTHONPATH={} taskset --cpu-list {}-{} {}"
+          .format(cuda_devices, MODELS_PATH, start, start + task.num_cores,
+                  self.get_cmd(task, result_path)))
       try:
         # TODO(robieta): store output.
         result = subprocess.check_output(

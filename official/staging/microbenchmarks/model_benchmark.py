@@ -80,7 +80,7 @@ class MicroBenchmark(PerfZeroBenchmark):
         [constants.NUMPY],
         [32, 64, 128, 256, 512]):
       tasks.append(constants.TaskConfig(
-          task="MLP", num_cores=num_cores, num_gpus=num_gpus,
+          name="MLP", num_cores=num_cores, num_gpus=num_gpus,
           batch_size=batch_size, data_mode=data_mode)
       )
 
@@ -91,7 +91,7 @@ class MicroBenchmark(PerfZeroBenchmark):
         [constants.NUMPY],
         [32, 64, 128, 256, 512]):
       tasks.append(constants.TaskConfig(
-          task="MLP", num_cores=num_cores, num_gpus=num_gpus,
+          name="MLP", num_cores=num_cores, num_gpus=num_gpus,
           batch_size=batch_size, data_mode=data_mode)
       )
     """
