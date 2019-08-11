@@ -18,10 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools as it
+import os
 
 from official.staging.microbenchmarks import constants
 from official.staging.microbenchmarks import schedule_base
 from official.utils.testing.perfzero_benchmark import PerfZeroBenchmark
+
+
+TASK_DIR = os.path.join(os.path.split(os.path.realpath(__file__))[0], "tasks")
 
 
 class MNISTRunner(schedule_base.Runner):
@@ -30,12 +34,13 @@ class MNISTRunner(schedule_base.Runner):
   def get_cmd(self, task, result_path):
     model_path = {"MLP": "mlp.py"}[task.name]
     template = (
-        "python tasks/{task_file} --num_cores {num_cores} --num_gpus {num_gpus} "
+        "python {task_dir}/{task_file} --num_cores {num_cores} --num_gpus {num_gpus} "
         "--batch_size {batch_size} --result_path {result_path}")
 
     return template.format(
-        task_file=model_path, num_cores=task.num_cores, num_gpus=task.num_gpus,
-        batch_size=task.batch_size, result_path=result_path,
+        task_dir=TASK_DIR, task_file=model_path, num_cores=task.num_cores,
+        num_gpus=task.num_gpus, batch_size=task.batch_size,
+        result_path=result_path,
     )
 
 
