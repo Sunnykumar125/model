@@ -37,7 +37,7 @@ from official.staging.microbenchmarks import constants
 # Leave some headroom so the run manager doesn't contend with the benchmarks.
 _NUM_CORES = multiprocessing.cpu_count() - 2
 _TIMEOUT = 10 * 60
-MODELS_PATH = os.path.abspath(__file__).split("models/official") + "models"
+MODELS_PATH = os.path.abspath(__file__).split("models/official")[0] + "models"
 
 
 class BaseScheduler(object):
