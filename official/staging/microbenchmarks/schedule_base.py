@@ -38,13 +38,13 @@ _NUM_CORES = multiprocessing.cpu_count() - 2
 _TIMEOUT = 10 * 60
 
 
-class CoreScheduler(object):
+class BaseScheduler(object):
   """Simple class for pinning benchmarks to CPU cores.
 
   TODO(robieta): Possibly coalesce with re-pinning.
   """
 
-  def __init__(self, num_cores=_NUM_CORES, num_gpus=1):
+  def __init__(self, num_cores, num_gpus):
     self.num_cores = num_cores
     self.num_gpus = num_gpus
 
@@ -126,8 +126,8 @@ class CoreScheduler(object):
 
 
 class Runner(object):
-  def __init__(self):
-    self.scheduler = CoreScheduler()
+  def __init__(self, num_cores=_NUM_CORES, num_gpus=1):
+    self.scheduler = BaseScheduler(num_cores, num_gpus)
     self.result_dir = tempfile.mkdtemp()
     atexit.register(shutil.rmtree, path=self.result_dir)
 
@@ -135,7 +135,7 @@ class Runner(object):
     self.result_queue = queue.Queue()
 
   def run(self, task_list, repeats=1):
-    # type: (typing.List[constants.TaskConfig], int) -> None
+    # type: (typing.List[constants.TaskConfig], int) -> typing.List
 
     task_list = [i for i in task_list * repeats]
     random.shuffle(task_list)

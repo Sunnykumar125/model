@@ -27,25 +27,16 @@ from official.utils.testing.perfzero_benchmark import PerfZeroBenchmark
 class MNISTRunner(schedule_base.Runner):
   pass
 
-  # def params_to_key(self, params, gpu_used):
-  #   return "{}{}\n    batchsize:{:>5}".format(params["model_type"].upper(), "(GPU)" if gpu_used else "", params["batch_size"])
-  #
-  # def get_cmd(self, num_cores, num_gpus, params, result_path):
-  #   model_type = params["model_type"]
-  #   model_path = {"MLP": "mlp.py"}[model_type]
-  #
-  #   template = (
-  #       "python tasks/{task_py} --num_cores {num_cores} --num_gpus {num_gpus} "
-  #       "--batch_size {batch_size} --result_path {result_path}")
-  #   raise NotImplementedError
-  #   # return template.format(
-  #   #     task_py=model_path,
-  #   # )
-  #   #
-  #   # return (
-  #   #     "python tasks/{} --num_cores {} --num_gpus {} --result_path {} "
-  #   #     "--batch_size {}".format(
-  #   #         model_path, num_cores, num_gpus, result_path, params["batch_size"]))
+  def get_cmd(self, task, result_path):
+    model_path = {"MLP": "mlp.py"}[task.name]
+    template = (
+        "python tasks/{task_file} --num_cores {num_cores} --num_gpus {num_gpus} "
+        "--batch_size {batch_size} --result_path {result_path}")
+
+    return template.format(
+        task_file=model_path, num_cores=task.num_cores, num_gpus=task.num_gpus,
+        batch_size=task.batch_size, result_path=result_path,
+    )
 
 
 class MicroBenchmark(PerfZeroBenchmark):
@@ -83,13 +74,20 @@ class MicroBenchmark(PerfZeroBenchmark):
     """
 
     tasks.append(constants.TaskConfig(
-        task="MLP", num_cores=4, num_gpus=0,
+        name="MLP", num_cores=4, num_gpus=0,
         batch_size=32, data_mode=constants.NUMPY))
 
     tasks.append(constants.TaskConfig(
-        task="MLP", num_cores=4, num_gpus=1,
+        name="MLP", num_cores=4, num_gpus=1,
         batch_size=32, data_mode=constants.NUMPY))
 
-    print(MNISTRunner().run(tasks, repeats=3))
+    for i in MNISTRunner(num_gpus=8).run(tasks, repeats=3):
+      print(str(i)[:100])
+    print()
+    print(self.output_dir)
+    import multiprocessing
+    print(multiprocessing.cpu_count())
 
-MicroBenchmark().run_mnist_mlp()
+
+if __name__ == "__main__":
+  MicroBenchmark().run_mnist_mlp()

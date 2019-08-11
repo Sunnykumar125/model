@@ -27,7 +27,7 @@ NUMPY = "numpy"
 
 assert six.PY3, "This assumes Py3 dicts."
 _TaskDefaults = dict(
-    task="N/A",
+    name="N/A",
     num_cores=1,
     num_gpus=0,
     data_mode=NUMPY,
