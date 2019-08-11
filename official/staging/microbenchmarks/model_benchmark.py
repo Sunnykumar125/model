@@ -72,12 +72,11 @@ class MicroBenchmark(PerfZeroBenchmark):
   def run_mnist_mlp(self):
     tasks = []
 
-    """
     # CPU benchmark.
     for num_cores, num_gpus, data_mode, batch_size in it.product(
         [1, 2, 4, 8, 16],
         [0],
-        [constants.NUMPY],
+        [constants.NUMPY, constants.DATASET],
         [32, 64, 128, 256, 512]):
       tasks.append(constants.TaskConfig(
           name="MLP", num_cores=num_cores, num_gpus=num_gpus,
@@ -88,22 +87,12 @@ class MicroBenchmark(PerfZeroBenchmark):
     for num_cores, num_gpus, data_mode, batch_size in it.product(
         [12],
         [1],
-        [constants.NUMPY],
+        [constants.NUMPY, constants.DATASET],
         [32, 64, 128, 256, 512]):
       tasks.append(constants.TaskConfig(
           name="MLP", num_cores=num_cores, num_gpus=num_gpus,
           batch_size=batch_size, data_mode=data_mode)
       )
-    """
-
-    for mode in [constants.NUMPY, constants.DATASET]:
-      tasks.append(constants.TaskConfig(
-          name="MLP", num_cores=4, num_gpus=0,
-          batch_size=32, data_mode=mode))
-
-      tasks.append(constants.TaskConfig(
-          name="MLP", num_cores=4, num_gpus=1,
-          batch_size=32, data_mode=mode))
 
     self._run_and_report_benchmark(tasks, MNISTRunner(num_gpus=8))
 

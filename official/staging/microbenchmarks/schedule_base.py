@@ -169,7 +169,10 @@ class Runner(object):
 
   def task_iter(self, task_list):
     # type: (typing.List[constants.TaskConfig]) -> (constants.TaskConfig, int, str)
-    for task in task_list:
+    status = lambda i: "{}    {:>4.1f}% done".format(
+        self.scheduler.as_str(), i / len(task_list))
+
+    for idx, task in enumerate(task_list):
       start = -1
       while start == -1:
         start, cuda_devices = self.scheduler.allocate(
@@ -180,9 +183,9 @@ class Runner(object):
           # thread to timout under normal conditions.
           self.scheduler.free(*self.free_queue.get(timeout=_TIMEOUT + 5))
         else:
-          print(self.scheduler.as_str())
+          print(status(idx))
           yield task, start, cuda_devices
-
+    print(status(len(task_list)))
 
   def map_fn(self, task, start, cuda_devices):
     # type: (constants.TaskConfig, int, str) -> None

@@ -135,16 +135,24 @@ def aggregate_results(grouped):
 
 
 def make_random_data(x_shapes, y_shapes, x_dtypes=None, y_dtypes=None,
+                     x_maxvals=None, y_maxvals=None,
                      batch_size=32, num_examples=512,
                      data_mode=constants.NUMPY):
 
   x_dtypes = x_dtypes or [tf.float32 for _ in x_shapes]
   y_dtypes = y_dtypes or [tf.float32 for _ in y_shapes]
 
+  x_maxvals = x_maxvals or [1 for _ in x_shapes]
+  y_maxvals = y_maxvals or [1 for _ in y_shapes]
+
   if data_mode == constants.NUMPY:
     flat_dtypes = [i.as_numpy_dtype() for i in x_dtypes + y_dtypes]
-    data = [np.random.random(size=(num_examples,) + shape).astype(dtype)
-            for shape, dtype in zip(x_shapes + y_shapes, flat_dtypes)]
+    data = [
+        np.random.uniform(
+            high=maxval, size=(num_examples,) + shape).astype(dtype)
+        for shape, dtype, maxval in
+        zip(x_shapes + y_shapes, flat_dtypes, x_maxvals + y_maxvals)
+    ]
     return {
         "x": data[:len(x_shapes)],
         "y": data[len(x_shapes):],
@@ -153,10 +161,10 @@ def make_random_data(x_shapes, y_shapes, x_dtypes=None, y_dtypes=None,
 
   elif data_mode == constants.DATASET:
     def map_fn(_):
-      x = [tf.random.uniform(shape=(1,) + shape, dtype=dtype, maxval=1)
-           for shape, dtype in zip(x_shapes, x_dtypes)]
-      y = [tf.random.uniform(shape=(1,) + shape, dtype=dtype, maxval=1)
-           for shape, dtype in zip(y_shapes, y_dtypes)]
+      x = [tf.random.uniform(shape=(1,) + shape, dtype=dtype, maxval=maxval)
+           for shape, dtype, maxval in zip(x_shapes, x_dtypes, x_maxvals)]
+      y = [tf.random.uniform(shape=(1,) + shape, dtype=dtype, maxval=maxval)
+           for shape, dtype, maxval in zip(y_shapes, y_dtypes, y_maxvals)]
       return x, y
 
     AUTOTUNE = tf.data.experimental.AUTOTUNE
