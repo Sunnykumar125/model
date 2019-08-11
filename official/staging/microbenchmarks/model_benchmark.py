@@ -18,7 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools as it
+import json
 import os
+import timeit
+import typing
 
 from official.staging.microbenchmarks import constants
 from official.staging.microbenchmarks import schedule_base
@@ -33,8 +36,10 @@ class MNISTRunner(schedule_base.Runner):
 
   def get_cmd(self, task, result_path):
     model_path = {"MLP": "mlp.py"}[task.name]
+
+    # PerfZero seems to need `python3` rather than `python`.
     template = (
-        "python {task_dir}/{task_file} --num_cores {num_cores} --num_gpus {num_gpus} "
+        "python3 {task_dir}/{task_file} --num_cores {num_cores} --num_gpus {num_gpus} "
         "--batch_size {batch_size} --result_path {result_path}")
 
     return template.format(
@@ -50,6 +55,19 @@ class MicroBenchmark(PerfZeroBenchmark):
         output_dir=output_dir,
         default_flags=default_flags,
         flag_methods=[])
+
+  def _run_and_report_benchmark(self, tasks, runner):
+    # type: (typing.List[constants.TaskConfig], schedule_base.Runner) -> None
+    start_time = timeit.default_timer()
+    results = runner.run(tasks)
+    wall_time = timeit.default_timer() - start_time
+
+    result_file = os.path.join(self.output_dir, "results.json")
+    with open(result_file, "wt") as f:
+      json.dump(results, f)
+    print("Results written to {}".format(result_file))
+
+    self.report_benchmark(iters=-1, wall_time=wall_time)
 
   def run_mnist_mlp(self):
     tasks = []
@@ -87,12 +105,7 @@ class MicroBenchmark(PerfZeroBenchmark):
           name="MLP", num_cores=4, num_gpus=1,
           batch_size=32, data_mode=mode))
 
-    for i in MNISTRunner(num_gpus=8).run(tasks, repeats=3):
-      print(str(i)[:300])
-    print()
-    print(self.output_dir)
-    import multiprocessing
-    print(multiprocessing.cpu_count())
+    self._run_and_report_benchmark(tasks, MNISTRunner(num_gpus=8))
 
 
 if __name__ == "__main__":
