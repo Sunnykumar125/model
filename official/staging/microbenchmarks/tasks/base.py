@@ -41,7 +41,7 @@ def define_flags():
       name='batch_size', default=32,
       help='Minibatch size for training.')
   flags.DEFINE_enum(
-      "data_mode", constants.NUMPY, [constants.NUMPY],
+      "data_mode", constants.NUMPY, [constants.NUMPY, constants.DATASET],
       "What kind of data to test. (NumPy array, Dataset, etc.)")
   flags.DEFINE_string(
       name='result_path', default=None,
@@ -150,6 +150,20 @@ def make_random_data(x_shapes, y_shapes, x_dtypes=None, y_dtypes=None,
         "y": data[len(x_shapes):],
         "batch_size": batch_size
     }
+
+  elif data_mode == constants.DATASET:
+    def map_fn(_):
+      x = [tf.random.uniform(shape=(1,) + shape, dtype=dtype, maxval=1)
+           for shape, dtype in zip(x_shapes, x_dtypes)]
+      y = [tf.random.uniform(shape=(1,) + shape, dtype=dtype, maxval=1)
+           for shape, dtype in zip(y_shapes, y_dtypes)]
+      return x, y
+
+    AUTOTUNE = tf.data.experimental.AUTOTUNE
+
+    dataset = tf.data.Dataset.range(num_examples)
+    dataset = dataset.map(map_fn, num_parallel_calls=AUTOTUNE)
+    return {"x": dataset.batch(batch_size).prefetch(AUTOTUNE)}
 
   raise NotImplementedError("TODO(robieta)")
 

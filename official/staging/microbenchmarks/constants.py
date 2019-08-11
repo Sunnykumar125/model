@@ -18,9 +18,9 @@ import collections
 import six
 
 NUMPY = "numpy"
+DATASET = "dataset"
 
 # TODO(robieta):
-# DATASET = "dataset"
 # GENERATOR = "generator"
 # EAGER_TENSOR = "eager_tensor"
 

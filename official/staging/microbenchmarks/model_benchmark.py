@@ -40,7 +40,7 @@ class MNISTRunner(schedule_base.Runner):
 
 
 class MicroBenchmark(PerfZeroBenchmark):
-  def __init__(self, output_dir=None, default_flags=None):
+  def __init__(self, output_dir=None, default_flags=None, root_data_dir=None):
     super(MicroBenchmark, self).__init__(
         output_dir=output_dir,
         default_flags=default_flags,
@@ -73,16 +73,17 @@ class MicroBenchmark(PerfZeroBenchmark):
       )
     """
 
-    tasks.append(constants.TaskConfig(
-        name="MLP", num_cores=4, num_gpus=0,
-        batch_size=32, data_mode=constants.NUMPY))
+    for mode in [constants.NUMPY, constants.DATASET]:
+      tasks.append(constants.TaskConfig(
+          name="MLP", num_cores=4, num_gpus=0,
+          batch_size=32, data_mode=mode))
 
-    tasks.append(constants.TaskConfig(
-        name="MLP", num_cores=4, num_gpus=1,
-        batch_size=32, data_mode=constants.NUMPY))
+      tasks.append(constants.TaskConfig(
+          name="MLP", num_cores=4, num_gpus=1,
+          batch_size=32, data_mode=mode))
 
     for i in MNISTRunner(num_gpus=8).run(tasks, repeats=3):
-      print(str(i)[:100])
+      print(str(i)[:300])
     print()
     print(self.output_dir)
     import multiprocessing
