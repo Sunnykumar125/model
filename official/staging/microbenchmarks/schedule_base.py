@@ -42,6 +42,11 @@ _NUM_CORES = multiprocessing.cpu_count() - 2
 _TIMEOUT = 10 * 60
 MODELS_PATH = os.path.abspath(__file__).split("models/official")[0] + "models"
 
+
+# =============================================================================
+# == Version shims ============================================================
+# =============================================================================
+
 if tf.__version__.startswith("2"):
   if "beta" in tf.__version__:
     RUN_MODE_STR = {False: "{}"}
@@ -59,16 +64,6 @@ if tf.__version__.startswith("2"):
     RUN_MODE_STR = {False: "{}"}
 else:
   RUN_MODE_STR = {False: "{}"}
-
-
-# TODO(robieta): Fix in PerfZero.
-_ESTIMATOR_VERSIONS = {
-    "1.15.0.dev20190709": "tf-estimator-nightly==1.14.0.dev2019070901",
-}
-
-if tf.__version__ in _ESTIMATOR_VERSIONS:
-  print("Downgrading Estimator.")
-  subprocess.call("pip install {}".format(_ESTIMATOR_VERSIONS[tf.__version__]))
 
 
 class BaseScheduler(object):
@@ -211,7 +206,8 @@ class Runner(object):
       print(out_str)
       sys.stdout.flush()
 
-    for idx, task in enumerate(task_list):
+    free_count = 0
+    for task in task_list:
       start = -1
       while start == -1:
         start, cuda_devices = self.scheduler.allocate(
@@ -220,11 +216,11 @@ class Runner(object):
         if start == -1:
           # Tasks have a timeout of `_TIMEOUT`, so we don't expect the main
           # thread to timeout under normal conditions.
+          free_count += 1
           self.scheduler.free(*self.free_queue.get(timeout=_TIMEOUT + 5))
+          print_status(free_count)
         else:
-          print_status(idx)
           yield task, start, cuda_devices
-    print_status(len(task_list))
 
   def map_fn(self, task, start, cuda_devices):
     # type: (constants.TaskConfig, int, str) -> None

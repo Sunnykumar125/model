@@ -64,6 +64,10 @@ class MicroBenchmark(PerfZeroBenchmark):
         default_flags=default_flags,
         flag_methods=[])
 
+  def _get_name(self, overwrite_name=None):
+    # This must be overridden to avoid an Estimator dependency issue.
+    return overwrite_name or "N/A"
+
   def _run_and_report_benchmark(self, tasks, runner, repeats):
     # type: (typing.List[constants.TaskConfig], schedule_base.Runner, int) -> None
     start_time = timeit.default_timer()
@@ -75,7 +79,7 @@ class MicroBenchmark(PerfZeroBenchmark):
       json.dump(results, f)
     print("Results written to {}".format(result_file))
 
-    self.report_benchmark(iters=-1, wall_time=wall_time)
+    self.report_benchmark(iters=-1, wall_time=wall_time, name="MicroBenchmark")
 
   def _run_task(self, name):
     tasks = []
