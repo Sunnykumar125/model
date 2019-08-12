@@ -61,6 +61,16 @@ else:
   RUN_MODE_STR = {False: "{}"}
 
 
+# TODO(robieta): Fix in PerfZero.
+_ESTIMATOR_VERSIONS = {
+    "1.15.0.dev20190709": "tf-estimator-nightly==1.14.0.dev2019070901",
+}
+
+if tf.__version__ in _ESTIMATOR_VERSIONS:
+  print("Downgrading Estimator.")
+  subprocess.call("pip install {}".format(_ESTIMATOR_VERSIONS[tf.__version__]))
+
+
 class BaseScheduler(object):
   """Simple class for pinning benchmarks to CPU cores.
 
