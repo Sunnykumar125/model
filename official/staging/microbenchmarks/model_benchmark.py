@@ -121,7 +121,7 @@ class MicroBenchmark(PerfZeroBenchmark):
 
   def run_baseline(self):
     tasks = []
-    for name in ["MLP", "CNN"]:  # , "LOGREG", "LSTM"]:
+    for name in ["MLP", "CNN", "LOGREG", "LSTM"]:
       # CPU reference.
       tasks.append(constants.TaskConfig(
           name=name, num_cores=1, num_gpus=0, batch_size=32,
@@ -132,4 +132,4 @@ class MicroBenchmark(PerfZeroBenchmark):
           name=name, num_cores=1, num_gpus=1, batch_size=32,
           data_mode=constants.NUMPY, experimental_run_tf_function=False))
 
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=2, report_name="run_baseline")
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=10, report_name="run_baseline")
