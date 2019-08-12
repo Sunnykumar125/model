@@ -50,12 +50,12 @@ MODELS_PATH = os.path.abspath(__file__).split("models/official")[0] + "models"
 if tf.__version__.startswith("2"):
   if "beta" in tf.__version__:
     RUN_MODE_STR = {False: "{}"}
-  elif tf.__version__.split("dev") >= "20190730":
+  elif tf.__version__.split("dev")[-1] >= "20190730":
     RUN_MODE_STR = {
       False: "{}",
       True: json.dumps({"experimental_run_tf_function": True})
     }
-  elif tf.__version__.split("dev") >= "20190712":
+  elif tf.__version__.split("dev")[-1] >= "20190712":
     RUN_MODE_STR = {
       False: "{}",
       True: json.dumps({"run_distributed": True})
