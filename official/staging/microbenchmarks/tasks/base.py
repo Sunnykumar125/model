@@ -196,7 +196,7 @@ def run_model(model_fn, input_fn):
   # Hey, this looks suspiciously like an Estimator!
 
   # Don't time setup.
-  keras.backend.clear_session()  # TODO(robieta): is this necessary?
+  # Don't clear session since this is expected to start in a new process.
   data = input_fn()
 
   timer = TimerCallback()

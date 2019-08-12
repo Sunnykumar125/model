@@ -27,13 +27,14 @@ from official.staging.microbenchmarks.tasks import base
 
 
 def input_fn():
+  # NOTE(robieta): num_examples reduced from 25000 to 10000 to speed up test.
   return base.make_random_data(
       x_shapes=((100,),),
       x_dtypes=[tf.int64],
       x_maxvals=[20000],
       y_shapes=((1,),),
       batch_size=flags.FLAGS.batch_size,
-      num_examples=25000,
+      num_examples=10000,
       data_mode=flags.FLAGS.data_mode,
   )
 

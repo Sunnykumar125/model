@@ -46,7 +46,7 @@ class TaskRunner(schedule_base.Runner):
         "python3 {task_dir}/{task_file} --num_cores {num_cores} "
         "--num_gpus {num_gpus} --batch_size {batch_size} "
         "--result_path {result_path} "
-        "--run_mode_kwargs={run_mode_kwargs}")
+        "--run_mode_kwargs='{run_mode_kwargs}'")
 
     return template.format(
         task_dir=TASK_DIR, task_file=MODEL_PATHS[task.name],
@@ -91,7 +91,7 @@ class MicroBenchmark(PerfZeroBenchmark):
         schedule_base.RUN_MODE_STR.keys()):
 
       # CPU benchmarks.
-      for num_cores in [1, 2, 4]:
+      for num_cores in [2, 4, 8]:
         tasks.append(constants.TaskConfig(
             name=name, num_cores=num_cores, num_gpus=0,
             batch_size=batch_size, data_mode=data_mode,
@@ -124,12 +124,12 @@ class MicroBenchmark(PerfZeroBenchmark):
     for name in ["MLP", "CNN", "LOGREG", "LSTM"]:
       # CPU reference.
       tasks.append(constants.TaskConfig(
-          name=name, num_cores=1, num_gpus=0, batch_size=32,
+          name=name, num_cores=2, num_gpus=0, batch_size=32,
           data_mode=constants.NUMPY, experimental_run_tf_function=False))
 
       # GPU reference.
       tasks.append(constants.TaskConfig(
-          name=name, num_cores=1, num_gpus=1, batch_size=32,
+          name=name, num_cores=2, num_gpus=1, batch_size=32,
           data_mode=constants.NUMPY, experimental_run_tf_function=False))
 
     self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=10, report_name="run_baseline")
