@@ -79,7 +79,7 @@ class MicroBenchmark(PerfZeroBenchmark):
       json.dump(results, f)
     print("Results written to {}".format(result_file))
 
-    name = "{}.{}".format(self.__class__.name, report_name)
+    name = "{}.{}".format(self.__class__.__name__, report_name)
     self.report_benchmark(iters=-1, wall_time=wall_time, name=name)
 
   def _run_task(self, name, report_name):
