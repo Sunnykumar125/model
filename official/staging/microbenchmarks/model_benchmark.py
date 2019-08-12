@@ -68,8 +68,8 @@ class MicroBenchmark(PerfZeroBenchmark):
     # This must be overridden to avoid an Estimator dependency issue.
     return overwrite_name or "N/A"
 
-  def _run_and_report_benchmark(self, tasks, runner, repeats):
-    # type: (typing.List[constants.TaskConfig], schedule_base.Runner, int) -> None
+  def _run_and_report_benchmark(self, tasks, runner, repeats, report_name):
+    # type: (typing.List[constants.TaskConfig], schedule_base.Runner, int, str) -> None
     start_time = timeit.default_timer()
     results = runner.run(tasks, repeats=repeats)
     wall_time = timeit.default_timer() - start_time
@@ -79,9 +79,10 @@ class MicroBenchmark(PerfZeroBenchmark):
       json.dump(results, f)
     print("Results written to {}".format(result_file))
 
-    self.report_benchmark(iters=-1, wall_time=wall_time, name="MicroBenchmark")
+    name = "{}.{}".format(self.__class__.name, report_name)
+    self.report_benchmark(iters=-1, wall_time=wall_time, name=name)
 
-  def _run_task(self, name):
+  def _run_task(self, name, report_name):
     tasks = []
 
     for data_mode, batch_size, experimental_run_tf_function in it.product(
@@ -104,23 +105,23 @@ class MicroBenchmark(PerfZeroBenchmark):
           experimental_run_tf_function=experimental_run_tf_function)
       )
 
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=3)
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=3, report_name)
 
   def run_mlp(self):
-    self._run_task("MLP")
+    self._run_task("MLP", "run_mlp")
 
   def run_cnn(self):
-    self._run_task("CNN")
+    self._run_task("CNN", "run_cnn")
 
   def run_logreg(self):
-    self._run_task("LOGREG")
+    self._run_task("LOGREG", "run_logreg")
 
   def run_lstm(self):
-    self._run_task("LSTM")
+    self._run_task("LSTM", "run_lstm")
 
   def run_baseline(self):
     tasks = []
-    for name in ["MLP", "CNN", "LOGREG", "LSTM"]:
+    for name in ["MLP", "CNN"]:  # , "LOGREG", "LSTM"]:
       # CPU reference.
       tasks.append(constants.TaskConfig(
           name=name, num_cores=1, num_gpus=0, batch_size=32,
@@ -131,4 +132,4 @@ class MicroBenchmark(PerfZeroBenchmark):
           name=name, num_cores=1, num_gpus=1, batch_size=32,
           data_mode=constants.NUMPY, experimental_run_tf_function=False))
 
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=10)
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=2, "run_baseline")
