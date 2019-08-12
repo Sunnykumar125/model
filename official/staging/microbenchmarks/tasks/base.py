@@ -44,7 +44,7 @@ def define_flags():
       "data_mode", constants.NUMPY, [constants.NUMPY, constants.DATASET],
       "What kind of data to test. (NumPy array, Dataset, etc.)")
   flags.DEFINE_boolean(
-      "experimental_run_tf_function", default=True,
+      "experimental_run_tf_function", default=False,
       help="Compile with new single exection path.")
   flags.DEFINE_string(
       name='result_path', default=None,

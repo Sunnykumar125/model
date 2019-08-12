@@ -47,7 +47,7 @@ class TaskRunner(schedule_base.Runner):
         "python3 {task_dir}/{task_file} --num_cores {num_cores} "
         "--num_gpus {num_gpus} --batch_size {batch_size} "
         "--result_path {result_path} "
-        "--experimental_run_tf_function {experimental_run_tf_function}")
+        "--experimental_run_tf_function={experimental_run_tf_function}")
 
     return template.format(
         task_dir=TASK_DIR, task_file=MODEL_PATHS[task.name],
