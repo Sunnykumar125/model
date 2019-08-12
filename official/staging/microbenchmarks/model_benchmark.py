@@ -105,7 +105,7 @@ class MicroBenchmark(PerfZeroBenchmark):
           experimental_run_tf_function=experimental_run_tf_function)
       )
 
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=3, report_name)
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=3, report_name=report_name)
 
   def run_mlp(self):
     self._run_task("MLP", "run_mlp")
@@ -132,4 +132,4 @@ class MicroBenchmark(PerfZeroBenchmark):
           name=name, num_cores=1, num_gpus=1, batch_size=32,
           data_mode=constants.NUMPY, experimental_run_tf_function=False))
 
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=2, "run_baseline")
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=2, report_name="run_baseline")
