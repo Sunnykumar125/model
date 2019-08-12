@@ -38,7 +38,7 @@ MODEL_PATHS = {
 }
 
 
-class MNISTRunner(schedule_base.Runner):
+class TaskRunner(schedule_base.Runner):
   pass
 
   def get_cmd(self, task, result_path):
@@ -77,18 +77,17 @@ class MicroBenchmark(PerfZeroBenchmark):
 
     self.report_benchmark(iters=-1, wall_time=wall_time)
 
-  def small_models(self):
+  def _run_task(self, name):
     tasks = []
     new_path = [True, False] if keras_utils.is_v2_0() else [False]
 
-    for name, data_mode, batch_size, experimental_run_tf_function in it.product(
-        ["MLP", "CNN", "LOGREG", "LSTM"],
+    for data_mode, batch_size, experimental_run_tf_function in it.product(
         [constants.NUMPY, constants.DATASET],
         [32, 64, 128, 256, 512],
         new_path):
 
       # CPU benchmarks.
-      for num_cores in [1, 2, 4, 8]:
+      for num_cores in [1, 2, 4]:
         tasks.append(constants.TaskConfig(
             name=name, num_cores=num_cores, num_gpus=0,
             batch_size=batch_size, data_mode=data_mode,
@@ -102,8 +101,31 @@ class MicroBenchmark(PerfZeroBenchmark):
           experimental_run_tf_function=experimental_run_tf_function)
       )
 
-    self._run_and_report_benchmark(tasks, MNISTRunner(num_gpus=8), repeats=3)
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=3)
 
+  def run_mlp(self):
+    self._run_task("MLP")
 
-if __name__ == "__main__":
-  MicroBenchmark().run_mnist_mlp()
+  def run_cnn(self):
+    self._run_task("CNN")
+
+  def run_logreg(self):
+    self._run_task("LOGREG")
+
+  def run_lstm(self):
+    self._run_task("LSTM")
+
+  def run_baseline(self):
+    tasks = []
+    for name in ["MLP", "CNN", "LOGREG", "LSTM"]:
+      # CPU reference.
+      tasks.append(constants.TaskConfig(
+          name=name, num_cores=1, num_gpus=0, batch_size=32,
+          data_mode=constants.NUMPY, experimental_run_tf_function=False))
+
+      # GPU reference.
+      tasks.append(constants.TaskConfig(
+          name=name, num_cores=1, num_gpus=1, batch_size=32,
+          data_mode=constants.NUMPY, experimental_run_tf_function=False))
+
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=10)
