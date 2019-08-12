@@ -26,8 +26,10 @@ import queue
 import random
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
+import timeit
 import typing
 
 
@@ -169,8 +171,16 @@ class Runner(object):
 
   def task_iter(self, task_list):
     # type: (typing.List[constants.TaskConfig]) -> (constants.TaskConfig, int, str)
-    status = lambda i: "{}    {:>4.1f}% done".format(
-        self.scheduler.as_str(), i / len(task_list))
+
+    loop_start = timeit.default_timer()
+    def print_status(i):
+      out_str, fraction_done = self.scheduler.as_str(), i / len(task_list)
+      out_str += "    {:>4.1f}% done".format(fraction_done * 100)
+      if i and not i % 25:
+        est_total = (timeit.default_timer() - loop_start) / fraction_done
+        out_str += "   ETA: {:.0f} sec".format(est_total * (1. - fraction_done))
+      print(out_str)
+      sys.stdout.flush()
 
     for idx, task in enumerate(task_list):
       start = -1
@@ -179,13 +189,13 @@ class Runner(object):
             task.num_cores, task.num_gpus)
 
         if start == -1:
-          # Tasks have a timeout of `_TIMEOUT`, so we never expect the main
-          # thread to timout under normal conditions.
+          # Tasks have a timeout of `_TIMEOUT`, so we don't expect the main
+          # thread to timeout under normal conditions.
           self.scheduler.free(*self.free_queue.get(timeout=_TIMEOUT + 5))
         else:
-          print(status(idx))
+          print_status(idx)
           yield task, start, cuda_devices
-    print(status(len(task_list)))
+    print_status(len(task_list))
 
   def map_fn(self, task, start, cuda_devices):
     # type: (constants.TaskConfig, int, str) -> None

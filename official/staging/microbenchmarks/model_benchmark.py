@@ -25,27 +25,35 @@ import typing
 
 from official.staging.microbenchmarks import constants
 from official.staging.microbenchmarks import schedule_base
+from official.utils.misc import keras_utils
 from official.utils.testing.perfzero_benchmark import PerfZeroBenchmark
 
 
 TASK_DIR = os.path.join(os.path.split(os.path.realpath(__file__))[0], "tasks")
+MODEL_PATHS = {
+    "CNN": "cnn.py",
+    "MLP": "mlp.py",
+    "LOGREG": "logreg.py",
+    "LSTM": "lstm.py"
+}
 
 
 class MNISTRunner(schedule_base.Runner):
   pass
 
   def get_cmd(self, task, result_path):
-    model_path = {"MLP": "mlp.py"}[task.name]
-
     # PerfZero seems to need `python3` rather than `python`.
     template = (
-        "python3 {task_dir}/{task_file} --num_cores {num_cores} --num_gpus {num_gpus} "
-        "--batch_size {batch_size} --result_path {result_path}")
+        "python3 {task_dir}/{task_file} --num_cores {num_cores} "
+        "--num_gpus {num_gpus} --batch_size {batch_size} "
+        "--result_path {result_path} "
+        "--experimental_run_tf_function {experimental_run_tf_function}")
 
     return template.format(
-        task_dir=TASK_DIR, task_file=model_path, num_cores=task.num_cores,
-        num_gpus=task.num_gpus, batch_size=task.batch_size,
-        result_path=result_path,
+        task_dir=TASK_DIR, task_file=MODEL_PATHS[task.name],
+        num_cores=task.num_cores, num_gpus=task.num_gpus,
+        batch_size=task.batch_size, result_path=result_path,
+        experimental_run_tf_function=task.experimental_run_tf_function,
     )
 
 
@@ -56,10 +64,10 @@ class MicroBenchmark(PerfZeroBenchmark):
         default_flags=default_flags,
         flag_methods=[])
 
-  def _run_and_report_benchmark(self, tasks, runner):
-    # type: (typing.List[constants.TaskConfig], schedule_base.Runner) -> None
+  def _run_and_report_benchmark(self, tasks, runner, repeats):
+    # type: (typing.List[constants.TaskConfig], schedule_base.Runner, int) -> None
     start_time = timeit.default_timer()
-    results = runner.run(tasks)
+    results = runner.run(tasks, repeats=repeats)
     wall_time = timeit.default_timer() - start_time
 
     result_file = os.path.join(self.output_dir, "results.json")
@@ -69,32 +77,32 @@ class MicroBenchmark(PerfZeroBenchmark):
 
     self.report_benchmark(iters=-1, wall_time=wall_time)
 
-  def run_mnist_mlp(self):
+  def small_models(self):
     tasks = []
+    new_path = [True, False] if keras_utils.is_v2_0() else [False]
 
-    # CPU benchmark.
-    for num_cores, num_gpus, data_mode, batch_size in it.product(
-        [1, 2, 4, 8, 16],
-        [0],
+    for name, data_mode, batch_size, experimental_run_tf_function in it.product(
+        ["MLP", "CNN", "LOGREG", "LSTM"],
         [constants.NUMPY, constants.DATASET],
-        [32, 64, 128, 256, 512]):
+        [32, 64, 128, 256, 512],
+        new_path):
+
+      # CPU benchmarks.
+      for num_cores in [1, 2, 4, 8]:
+        tasks.append(constants.TaskConfig(
+            name=name, num_cores=num_cores, num_gpus=0,
+            batch_size=batch_size, data_mode=data_mode,
+            experimental_run_tf_function=experimental_run_tf_function)
+        )
+
+      # GPU benchmark.
       tasks.append(constants.TaskConfig(
-          name="MLP", num_cores=num_cores, num_gpus=num_gpus,
-          batch_size=batch_size, data_mode=data_mode)
+          name=name, num_cores=4, num_gpus=1,
+          batch_size=batch_size, data_mode=data_mode,
+          experimental_run_tf_function=experimental_run_tf_function)
       )
 
-    # GPU benchmark.
-    for num_cores, num_gpus, data_mode, batch_size in it.product(
-        [12],
-        [1],
-        [constants.NUMPY, constants.DATASET],
-        [32, 64, 128, 256, 512]):
-      tasks.append(constants.TaskConfig(
-          name="MLP", num_cores=num_cores, num_gpus=num_gpus,
-          batch_size=batch_size, data_mode=data_mode)
-      )
-
-    self._run_and_report_benchmark(tasks, MNISTRunner(num_gpus=8))
+    self._run_and_report_benchmark(tasks, MNISTRunner(num_gpus=8), repeats=3)
 
 
 if __name__ == "__main__":

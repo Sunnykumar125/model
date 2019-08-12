@@ -43,6 +43,9 @@ def define_flags():
   flags.DEFINE_enum(
       "data_mode", constants.NUMPY, [constants.NUMPY, constants.DATASET],
       "What kind of data to test. (NumPy array, Dataset, etc.)")
+  flags.DEFINE_boolean(
+      "experimental_run_tf_function", default=True,
+      help="Compile with new single exection path.")
   flags.DEFINE_string(
       name='result_path', default=None,
       help='Path where results should be written.')
@@ -200,7 +203,11 @@ def run_model(model_fn, input_fn):
   model = model_fn()
 
   with timer.time_compile():
-    model.compile('rmsprop', 'binary_crossentropy')
+    if flags.FLAGS.experimental_run_tf_function:
+      model.compile('rmsprop', 'binary_crossentropy',
+                    experimental_run_tf_function=True)
+    else:
+      model.compile('rmsprop', 'binary_crossentropy')
 
   model.fit(**data, epochs=4, callbacks=[timer], verbose=2)
 
