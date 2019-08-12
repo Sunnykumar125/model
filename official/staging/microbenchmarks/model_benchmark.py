@@ -25,7 +25,6 @@ import typing
 
 from official.staging.microbenchmarks import constants
 from official.staging.microbenchmarks import schedule_base
-from official.utils.misc import keras_utils
 from official.utils.testing.perfzero_benchmark import PerfZeroBenchmark
 
 
@@ -47,13 +46,14 @@ class TaskRunner(schedule_base.Runner):
         "python3 {task_dir}/{task_file} --num_cores {num_cores} "
         "--num_gpus {num_gpus} --batch_size {batch_size} "
         "--result_path {result_path} "
-        "--experimental_run_tf_function={experimental_run_tf_function}")
+        "--run_mode_kwargs={run_mode_kwargs}")
 
     return template.format(
         task_dir=TASK_DIR, task_file=MODEL_PATHS[task.name],
         num_cores=task.num_cores, num_gpus=task.num_gpus,
         batch_size=task.batch_size, result_path=result_path,
-        experimental_run_tf_function=task.experimental_run_tf_function,
+        run_mode_kwargs=schedule_base.RUN_MODE_STR[
+          task.experimental_run_tf_function],
     )
 
 
@@ -79,12 +79,11 @@ class MicroBenchmark(PerfZeroBenchmark):
 
   def _run_task(self, name):
     tasks = []
-    new_path = [True, False] if keras_utils.is_v2_0() else [False]
 
     for data_mode, batch_size, experimental_run_tf_function in it.product(
         [constants.NUMPY, constants.DATASET],
         [32, 64, 128, 256, 512],
-        new_path):
+        schedule_base.RUN_MODE_STR.keys()):
 
       # CPU benchmarks.
       for num_cores in [1, 2, 4]:

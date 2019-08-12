@@ -32,6 +32,7 @@ import threading
 import timeit
 import typing
 
+import tensorflow as tf
 
 from official.staging.microbenchmarks import constants
 
@@ -40,6 +41,24 @@ from official.staging.microbenchmarks import constants
 _NUM_CORES = multiprocessing.cpu_count() - 2
 _TIMEOUT = 10 * 60
 MODELS_PATH = os.path.abspath(__file__).split("models/official")[0] + "models"
+
+if tf.__version__.startswith("2"):
+  if "beta" in tf.__version__:
+    RUN_MODE_STR = {False: "{}"}
+  elif tf.__version__.split("dev") >= "20190730":
+    RUN_MODE_STR = {
+      False: "{}",
+      True: json.dumps({"experimental_run_tf_function": True})
+    }
+  elif tf.__version__.split("dev") >= "20190712":
+    RUN_MODE_STR = {
+      False: "{}",
+      True: json.dumps({"run_distributed": True})
+    }
+  else:
+    RUN_MODE_STR = {False: "{}"}
+else:
+  RUN_MODE_STR = {False: "{}"}
 
 
 class BaseScheduler(object):
