@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import functools
 import itertools as it
 import json
 import os
@@ -57,6 +58,17 @@ class TaskRunner(schedule_base.Runner):
     )
 
 
+_NAME_STACK = []
+def preserve_name(f):
+  @functools.wraps(f)
+  def wrapped(self):
+    _NAME_STACK.append(f.__name__)
+    out = f()
+    _NAME_STACK.pop()
+    return out
+  return wrapped
+
+
 class MicroBenchmark(PerfZeroBenchmark):
   def __init__(self, output_dir=None, default_flags=None, root_data_dir=None):
     super(MicroBenchmark, self).__init__(
@@ -66,10 +78,12 @@ class MicroBenchmark(PerfZeroBenchmark):
 
   def _get_name(self, overwrite_name=None):
     # This must be overridden to avoid an Estimator dependency issue.
-    return overwrite_name or "N/A"
+    if _NAME_STACK:
+      return "{}.{}".format(self.__class__.__name__, _NAME_STACK[-1])
+    return super(MicroBenchmark, self)._get_name(overwrite_name)
 
-  def _run_and_report_benchmark(self, tasks, runner, repeats, report_name):
-    # type: (typing.List[constants.TaskConfig], schedule_base.Runner, int, str) -> None
+  def _run_and_report_benchmark(self, tasks, runner, repeats):
+    # type: (typing.List[constants.TaskConfig], schedule_base.Runner, int) -> None
     start_time = timeit.default_timer()
     results = runner.run(tasks, repeats=repeats)
     wall_time = timeit.default_timer() - start_time
@@ -79,15 +93,14 @@ class MicroBenchmark(PerfZeroBenchmark):
       json.dump(results, f)
     print("Results written to {}".format(result_file))
 
-    name = "{}.{}".format(self.__class__.__name__, report_name)
-    self.report_benchmark(iters=-1, wall_time=wall_time, name=name)
+    self.report_benchmark(iters=-1, wall_time=wall_time)
 
-  def _run_task(self, name, report_name):
+  def _run_task(self, name):
     tasks = []
 
     for data_mode, batch_size, experimental_run_tf_function in it.product(
         [constants.NUMPY, constants.DATASET],
-        [32, 64, 128, 256, 512],
+        [32, 128, 512],  # TODO(robieta): run full [32, 64, 128, 256, 512]
         schedule_base.RUN_MODE_STR.keys()):
 
       # CPU benchmarks.
@@ -105,31 +118,55 @@ class MicroBenchmark(PerfZeroBenchmark):
           experimental_run_tf_function=experimental_run_tf_function)
       )
 
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=3, report_name=report_name)
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=3)
 
+  @preserve_name
   def run_mlp(self):
-    self._run_task("MLP", "run_mlp")
+    self._run_task("MLP")
 
+  @preserve_name
   def run_cnn(self):
-    self._run_task("CNN", "run_cnn")
+    self._run_task("CNN")
 
+  @preserve_name
   def run_logreg(self):
-    self._run_task("LOGREG", "run_logreg")
+    self._run_task("LOGREG")
 
+  @preserve_name
   def run_lstm(self):
-    self._run_task("LSTM", "run_lstm")
+    self._run_task("LSTM")
 
-  def run_baseline(self):
+  @preserve_name
+  def debug_test(self):
     tasks = []
     for name in ["MLP", "CNN", "LOGREG", "LSTM"]:
       # CPU reference.
       tasks.append(constants.TaskConfig(
-          name=name, num_cores=2, num_gpus=0, batch_size=32,
-          data_mode=constants.NUMPY, experimental_run_tf_function=False))
+        name=name, num_cores=12, num_gpus=0, batch_size=256,
+        data_mode=constants.NUMPY, experimental_run_tf_function=False))
 
       # GPU reference.
       tasks.append(constants.TaskConfig(
-          name=name, num_cores=2, num_gpus=1, batch_size=32,
-          data_mode=constants.NUMPY, experimental_run_tf_function=False))
+        name=name, num_cores=12, num_gpus=1, batch_size=256,
+        data_mode=constants.NUMPY, experimental_run_tf_function=False))
 
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=10, report_name="run_baseline")
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=2)
+
+  @preserve_name
+  def run_baseline(self):
+    tasks = []
+    for name in ["MLP", "CNN", "LOGREG", "LSTM"]:
+      for experimental_run_tf_function in schedule_base.RUN_MODE_STR.keys():
+        # CPU reference.
+        tasks.append(constants.TaskConfig(
+            name=name, num_cores=2, num_gpus=0, batch_size=32,
+            data_mode=constants.NUMPY,
+            experimental_run_tf_function=experimental_run_tf_function))
+
+        # GPU reference.
+        tasks.append(constants.TaskConfig(
+            name=name, num_cores=2, num_gpus=1, batch_size=32,
+            data_mode=constants.NUMPY,
+            experimental_run_tf_function=experimental_run_tf_function))
+
+    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=10)
