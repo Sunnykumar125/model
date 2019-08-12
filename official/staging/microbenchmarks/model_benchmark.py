@@ -63,7 +63,7 @@ def preserve_name(f):
   @functools.wraps(f)
   def wrapped(self):
     _NAME_STACK.append(f.__name__)
-    out = f()
+    out = f(self)
     _NAME_STACK.pop()
     return out
   return wrapped
