@@ -29,7 +29,7 @@ from official.staging.microbenchmarks import schedule_base
 from official.utils.testing.perfzero_benchmark import PerfZeroBenchmark
 
 
-_NUM_GPUS = 8  # TODO(robieta): set back to 4 when P100's are ready.
+_NUM_GPUS = 4  # This expects to run on a 4xP100 machine.
 TASK_DIR = os.path.join(os.path.split(os.path.realpath(__file__))[0], "tasks")
 MODEL_PATHS = {
     "CNN": "cnn.py",
@@ -121,7 +121,7 @@ class MicroBenchmark(PerfZeroBenchmark):
           experimental_run_tf_function=experimental_run_tf_function)
       )
 
-    self._run_and_report_benchmark(tasks, TaskRunner(), repeats=3)
+    self._run_and_report_benchmark(tasks, TaskRunner(), repeats=5)
 
   def _run_broad_task(self, num_cores, batch_size, repeats):
     """Perform a shallow characterization of all models."""

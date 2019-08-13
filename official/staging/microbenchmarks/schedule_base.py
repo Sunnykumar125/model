@@ -46,16 +46,16 @@ MODELS_PATH = os.path.abspath(__file__).split("models/official")[0] + "models"
 # =============================================================================
 # == Version shims ============================================================
 # =============================================================================
-
+tf_date = tf.__version__.split("dev")[-1]
 if tf.__version__.startswith("2"):
   if "beta" in tf.__version__:
     RUN_MODE_STR = {False: "{}"}
-  elif tf.__version__.split("dev")[-1] >= "20190730":
+  elif tf_date >= "20190730":
     RUN_MODE_STR = {
       False: "{}",
       True: json.dumps({"experimental_run_tf_function": True})
     }
-  elif tf.__version__.split("dev")[-1] >= "20190712":
+  elif tf_date >= "20190712":
     RUN_MODE_STR = {
       False: "{}",
       True: json.dumps({"run_distributed": True})
@@ -64,6 +64,12 @@ if tf.__version__.startswith("2"):
     RUN_MODE_STR = {False: "{}"}
 else:
   RUN_MODE_STR = {False: "{}"}
+
+
+if tf_date in ("20190714", "20190715"):
+  print("Downgrading estimator")
+  print(subprocess.check_output("pip install tf-estimator-nightly==1.14.0.dev2019071001"))
+  sys.stdout.flush()
 
 
 class BaseScheduler(object):
