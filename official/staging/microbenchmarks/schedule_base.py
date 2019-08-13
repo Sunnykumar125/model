@@ -68,7 +68,7 @@ else:
 
 if tf_date in ("20190714", "20190715"):
   print("Downgrading estimator")
-  print(subprocess.check_output("pip install tf-estimator-nightly==1.14.0.dev2019071001"))
+  print(subprocess.check_output(["pip", "install", "tf-estimator-nightly==1.14.0.dev2019071001"]))
   sys.stdout.flush()
 
 
