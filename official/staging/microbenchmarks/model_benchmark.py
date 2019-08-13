@@ -19,10 +19,13 @@ from __future__ import print_function
 
 import functools
 import itertools as it
-import json
 import os
 import timeit
 import typing
+import uuid
+
+import numpy as np
+import tensorflow as tf
 
 from official.staging.microbenchmarks import constants
 from official.staging.microbenchmarks import schedule_base
@@ -40,8 +43,8 @@ MODEL_PATHS = {
 
 
 class TaskRunner(schedule_base.Runner):
-  def __init__(self):
-    super(TaskRunner, self).__init__(num_gpus=_NUM_GPUS)
+  def __init__(self, num_gpus=_NUM_GPUS):
+    super(TaskRunner, self).__init__(num_gpus=num_gpus)
 
   def get_cmd(self, task, result_path):
     # PerfZero seems to need `python3` rather than `python`.
@@ -73,6 +76,7 @@ def preserve_name(f):
 
 class MicroBenchmark(PerfZeroBenchmark):
   def __init__(self, output_dir=None, default_flags=None, root_data_dir=None):
+    self._experiment_id = str(uuid.uuid4())
     super(MicroBenchmark, self).__init__(
         output_dir=output_dir,
         default_flags=default_flags,
@@ -90,9 +94,36 @@ class MicroBenchmark(PerfZeroBenchmark):
     results = runner.run(tasks, repeats=repeats)
     wall_time = timeit.default_timer() - start_time
 
-    result_file = os.path.join(self.output_dir, "results.json")
+    template = ("{experiment_id}, {version}, {git_version}, {name}, "
+                "{batch_size}, {num_cores}, {num_gpus}, {data_mode}, "
+                "{experimental_run_tf_function}, {misc_params}, "
+                "{model_creation_time}, {compile_time}, {startup_time}, "
+                "{epoch_times}, {end_to_end_time}, {mean_batch_time}\n")
+
+    result_file = os.path.join(self.output_dir, "results.csv")
     with open(result_file, "wt") as f:
-      json.dump(results, f)
+      f.write(template.replace("{", "").replace("}", ""))
+      for task, result in results:
+        line = template.format(
+          experiment_id=self._experiment_id,
+          version=tf.__version__,
+          git_version=tf.__git_version__,
+          name=task.name,
+          batch_size=task.batch_size,
+          num_cores=task.num_cores,
+          num_gpus=task.num_gpus,
+          data_mode=task.data_mode,
+          experimental_run_tf_function=task.experimental_run_tf_function,
+          misc_params=task.misc_params,
+          model_creation_time=result['model_creation_time'],
+          compile_time=result['compile_time'],
+          startup_time=result['startup_time'],
+          epoch_times=result['epoch_times'],
+          end_to_end_time=result['end_to_end_time'],
+          mean_batch_time=np.mean(result['batch_times']),
+        )
+        f.write(line)
+
     print("Results written to {}".format(result_file))
 
     self.report_benchmark(iters=-1, wall_time=wall_time)
@@ -102,7 +133,7 @@ class MicroBenchmark(PerfZeroBenchmark):
     tasks = []
 
     for data_mode, batch_size, experimental_run_tf_function in it.product(
-        [constants.NUMPY, constants.DATASET],
+        [constants.NUMPY, constants.DATASET, constants.FROM_TENSOR_SLICES],
         [32, 128, 512],  # TODO(robieta): run full [32, 64, 128, 256, 512]
         schedule_base.RUN_MODE_STR.keys()):
 
@@ -162,3 +193,19 @@ class MicroBenchmark(PerfZeroBenchmark):
   @preserve_name
   def run_baseline(self):
     self._run_broad_task(num_cores=2, batch_size=32, repeats=10)
+
+  @preserve_name
+  def run_trivial(self):
+    tasks = [
+        constants.TaskConfig(
+            name="MLP",
+            num_cores=4,
+            num_gpus=0,
+            batch_size=512,
+            data_mode=data_mode,
+            experimental_run_tf_function=False)
+        for data_mode in [constants.NUMPY, constants.DATASET, constants.FROM_TENSOR_SLICES]
+    ]
+    self._run_and_report_benchmark(tasks, TaskRunner(1), repeats=2)
+
+MicroBenchmark().run_trivial()

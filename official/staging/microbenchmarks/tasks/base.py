@@ -41,7 +41,7 @@ def define_flags():
       name='batch_size', default=32,
       help='Minibatch size for training.')
   flags.DEFINE_enum(
-      "data_mode", constants.NUMPY, [constants.NUMPY, constants.DATASET],
+      "data_mode", constants.NUMPY, [constants.NUMPY, constants.DATASET, constants.FROM_TENSOR_SLICES],
       "What kind of data to test. (NumPy array, Dataset, etc.)")
   flags.DEFINE_string(
       "run_mode_kwargs", default="{}",
@@ -104,40 +104,6 @@ class TimerCallback(keras.callbacks.Callback):
     }
 
 
-def aggregate_results(grouped):
-  for param_key, subresults in sorted(grouped.items(), key=lambda kv: kv[0]):
-    print(param_key)
-    print("{}model_creation_time{}compile_time{}startup_time{}end_to_end_time{}"
-          "batch_times{}epoch_times{}step_overhead".format(
-        " " * 18, " " * 14, " " * 14, " " * 11, " " * 15, " " * 15, " " * 13))
-
-    for [num_cores, num_gpus], results in sorted(subresults.items(), key=lambda kv: kv[0]):
-      output = ["{} core{}:".format(num_cores, "s" if num_cores > 1 else " ").rjust(11)]
-      for r in results:
-        r["step_overhead"] = 1. - np.sum(r["batch_times"]) / np.sum(r["epoch_times"])
-
-      def simple_mean(key, minlen=0, unit="sec"):
-        multiplier = {"sec": 1, "ms": 1000, "%": 100}[unit]
-        try:
-          data = list(it.chain(*[i[key] for i in results]))
-        except TypeError:
-          data = [i[key] for i in results]
-
-        return "{:.1f} {} +/- {:>2.0f}%".format(
-            np.mean(data) * multiplier, unit, np.std(data) / np.mean(data) * 100
-        ).rjust(max([len(key), minlen]))
-
-      output.append(simple_mean("model_creation_time", 25))
-      output.append(simple_mean("compile_time", 25))
-      output.append(simple_mean("startup_time", 25))
-      output.append(simple_mean("end_to_end_time", 25))
-      output.append(simple_mean("batch_times", 25, "ms"))
-      output.append(simple_mean("epoch_times", 25))
-      output.append(simple_mean("step_overhead", 25, "%"))
-      print(" ".join(output))
-    print()
-
-
 def make_random_data(x_shapes, y_shapes, x_dtypes=None, y_dtypes=None,
                      x_maxvals=None, y_maxvals=None,
                      batch_size=32, num_examples=512,
@@ -149,29 +115,36 @@ def make_random_data(x_shapes, y_shapes, x_dtypes=None, y_dtypes=None,
   x_maxvals = x_maxvals or [1 for _ in x_shapes]
   y_maxvals = y_maxvals or [1 for _ in y_shapes]
 
-  if data_mode == constants.NUMPY:
+  AUTOTUNE = tf.data.experimental.AUTOTUNE
+  if data_mode in (constants.NUMPY, constants.FROM_TENSOR_SLICES):
     flat_dtypes = [i.as_numpy_dtype() for i in x_dtypes + y_dtypes]
-    data = [
+    data = tuple(
         np.random.uniform(
             high=maxval, size=(num_examples,) + shape).astype(dtype)
         for shape, dtype, maxval in
         zip(x_shapes + y_shapes, flat_dtypes, x_maxvals + y_maxvals)
-    ]
-    return {
-        "x": data[:len(x_shapes)],
-        "y": data[len(x_shapes):],
-        "batch_size": batch_size
-    }
+    )
+    if data_mode == constants.NUMPY:
+      return {
+          "x": data[:len(x_shapes)],
+          "y": data[len(x_shapes):],
+          "batch_size": batch_size
+      }
+    else:
+      # Make NumPy data then read into Dataset.
+      x = {"x": tf.data.Dataset.from_tensor_slices((
+          data[:len(x_shapes)],
+          data[len(x_shapes):],
+      )).batch(batch_size).prefetch(AUTOTUNE)}
+      return x
 
   elif data_mode == constants.DATASET:
     def map_fn(_):
-      x = [tf.random.uniform(shape=(1,) + shape, dtype=dtype, maxval=maxval)
-           for shape, dtype, maxval in zip(x_shapes, x_dtypes, x_maxvals)]
-      y = [tf.random.uniform(shape=(1,) + shape, dtype=dtype, maxval=maxval)
-           for shape, dtype, maxval in zip(y_shapes, y_dtypes, y_maxvals)]
+      x = tuple(tf.random.uniform(shape=shape, dtype=dtype, maxval=maxval)
+                for shape, dtype, maxval in zip(x_shapes, x_dtypes, x_maxvals))
+      y = tuple(tf.random.uniform(shape=shape, dtype=dtype, maxval=maxval)
+                for shape, dtype, maxval in zip(y_shapes, y_dtypes, y_maxvals))
       return x, y
-
-    AUTOTUNE = tf.data.experimental.AUTOTUNE
 
     dataset = tf.data.Dataset.range(num_examples)
     dataset = dataset.map(map_fn, num_parallel_calls=AUTOTUNE)

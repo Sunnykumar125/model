@@ -19,6 +19,7 @@ import six
 
 NUMPY = "numpy"
 DATASET = "dataset"
+FROM_TENSOR_SLICES = "from_tensor_slices"
 
 # TODO(robieta):
 # GENERATOR = "generator"
