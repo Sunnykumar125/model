@@ -29,6 +29,7 @@ from official.staging.microbenchmarks import schedule_base
 from official.utils.testing.perfzero_benchmark import PerfZeroBenchmark
 
 
+_NUM_GPUS = 8  # TODO(robieta): set back to 4 when P100's are ready.
 TASK_DIR = os.path.join(os.path.split(os.path.realpath(__file__))[0], "tasks")
 MODEL_PATHS = {
     "CNN": "cnn.py",
@@ -39,7 +40,8 @@ MODEL_PATHS = {
 
 
 class TaskRunner(schedule_base.Runner):
-  pass
+  def __init__(self):
+    super(TaskRunner, self).__init__(num_gpus=_NUM_GPUS)
 
   def get_cmd(self, task, result_path):
     # PerfZero seems to need `python3` rather than `python`.
@@ -96,6 +98,7 @@ class MicroBenchmark(PerfZeroBenchmark):
     self.report_benchmark(iters=-1, wall_time=wall_time)
 
   def _run_task(self, name):
+    """Perform a detailed characterization of a single model."""
     tasks = []
 
     for data_mode, batch_size, experimental_run_tf_function in it.product(
@@ -118,7 +121,23 @@ class MicroBenchmark(PerfZeroBenchmark):
           experimental_run_tf_function=experimental_run_tf_function)
       )
 
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=3)
+    self._run_and_report_benchmark(tasks, TaskRunner(), repeats=3)
+
+  def _run_broad_task(self, num_cores, batch_size, repeats):
+    """Perform a shallow characterization of all models."""
+    tasks = []
+    for name, num_gpus, experimental_run_tf_function in it.product(
+        ["MLP", "CNN", "LOGREG", "LSTM"], [0, 1],
+        schedule_base.RUN_MODE_STR.keys()):
+      tasks.append(constants.TaskConfig(
+          name=name,
+          num_cores=num_cores,
+          num_gpus=num_gpus,
+          batch_size=batch_size,
+          data_mode=constants.NUMPY,
+          experimental_run_tf_function=experimental_run_tf_function)
+      )
+    self._run_and_report_benchmark(tasks, TaskRunner(), repeats=repeats)
 
   @preserve_name
   def run_mlp(self):
@@ -138,35 +157,8 @@ class MicroBenchmark(PerfZeroBenchmark):
 
   @preserve_name
   def debug_test(self):
-    tasks = []
-    for name in ["MLP", "CNN", "LOGREG", "LSTM"]:
-      # CPU reference.
-      tasks.append(constants.TaskConfig(
-        name=name, num_cores=12, num_gpus=0, batch_size=256,
-        data_mode=constants.NUMPY, experimental_run_tf_function=False))
-
-      # GPU reference.
-      tasks.append(constants.TaskConfig(
-        name=name, num_cores=12, num_gpus=1, batch_size=256,
-        data_mode=constants.NUMPY, experimental_run_tf_function=False))
-
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=2)
+    self._run_broad_task(num_cores=12, batch_size=256, repeats=2)
 
   @preserve_name
   def run_baseline(self):
-    tasks = []
-    for name in ["MLP", "CNN", "LOGREG", "LSTM"]:
-      for experimental_run_tf_function in schedule_base.RUN_MODE_STR.keys():
-        # CPU reference.
-        tasks.append(constants.TaskConfig(
-            name=name, num_cores=2, num_gpus=0, batch_size=32,
-            data_mode=constants.NUMPY,
-            experimental_run_tf_function=experimental_run_tf_function))
-
-        # GPU reference.
-        tasks.append(constants.TaskConfig(
-            name=name, num_cores=2, num_gpus=1, batch_size=32,
-            data_mode=constants.NUMPY,
-            experimental_run_tf_function=experimental_run_tf_function))
-
-    self._run_and_report_benchmark(tasks, TaskRunner(num_gpus=8), repeats=10)
+    self._run_broad_task(num_cores=2, batch_size=32, repeats=10)
