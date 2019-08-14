@@ -98,7 +98,7 @@ class MicroBenchmark(PerfZeroBenchmark):
                 "{batch_size}, {num_cores}, {num_gpus}, {data_mode}, "
                 "{experimental_run_tf_function}, {misc_params}, "
                 "{model_creation_time}, {compile_time}, {startup_time}, "
-                "{epoch_times}, {end_to_end_time}, {mean_batch_time}\n")
+                "{mean_epoch_time}, {end_to_end_time}, {mean_batch_time}\n")
 
     result_file = os.path.join(self.output_dir, "results.csv")
     with open(result_file, "wt") as f:
@@ -118,7 +118,7 @@ class MicroBenchmark(PerfZeroBenchmark):
           model_creation_time=result['model_creation_time'],
           compile_time=result['compile_time'],
           startup_time=result['startup_time'],
-          epoch_times=result['epoch_times'],
+          mean_epoch_times=np.mean(result['epoch_times']),
           end_to_end_time=result['end_to_end_time'],
           mean_batch_time=np.mean(result['batch_times']),
         )

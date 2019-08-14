@@ -66,12 +66,6 @@ else:
   RUN_MODE_STR = {False: "{}"}
 
 
-if tf_date in ("20190714", "20190715"):
-  print("Downgrading estimator")
-  print(subprocess.check_output(["pip", "install", "tf-estimator-nightly==1.14.0.dev2019071001"]))
-  sys.stdout.flush()
-
-
 class BaseScheduler(object):
   """Simple class for pinning benchmarks to CPU cores.
 
@@ -177,7 +171,10 @@ class Runner(object):
     # The various map functions in pool seem to want to do some sort of grouping
     # of the iterable (even with chunksize=1), and wind up deadlocking. So
     # instead we manage the loop ourselves.
-    with multiprocessing.dummy.Pool(24) as pool:
+
+    # 24 workers can lead to resource contention and occasional exhaustion, so
+    # the number of workers is reduced to 18.
+    with multiprocessing.dummy.Pool(18) as pool:
       for args in self.task_iter(task_list):
         pool.apply_async(self.map_fn, args=args)
 
@@ -231,30 +228,29 @@ class Runner(object):
   def map_fn(self, task, start, cuda_devices):
     # type: (constants.TaskConfig, int, str) -> None
 
-    success = False
+    output_result_path = None
     _, result_path = tempfile.mkstemp(prefix=self.result_dir + "/",
                                       suffix=".json")
+
+    cmd = (
+        "CUDA_VISIBLE_DEVICES='{}' PYTHONPATH={} taskset --cpu-list {}-{} {}"
+        .format(cuda_devices, MODELS_PATH, start, start + task.num_cores,
+                self.get_cmd(task, result_path)))
+
     try:
-      cmd = (
-          "CUDA_VISIBLE_DEVICES='{}' PYTHONPATH={} taskset --cpu-list {}-{} {}"
-          .format(cuda_devices, MODELS_PATH, start, start + task.num_cores,
-                  self.get_cmd(task, result_path)))
-      try:
-        # TODO(robieta): store output.
-        result = subprocess.check_output(
-            cmd, stderr=subprocess.STDOUT, shell=True,
-            timeout=_TIMEOUT).decode("utf-8")  # type: str
+      # TODO(robieta): store output.
+      result = subprocess.check_output(
+          cmd, stderr=subprocess.STDOUT, shell=True,
+          timeout=_TIMEOUT).decode("utf-8")  # type: str
 
-        self.result_queue.put((task, result_path))
-        success = True
+      output_result_path = result_path
 
-      except subprocess.CalledProcessError as e:
-        print("failed cmd: {}\n{}".format(cmd, e.output))
+    except subprocess.CalledProcessError as e:
+      print("failed cmd: {}\n{}".format(cmd, e.output))
 
     finally:
       self.free_queue.put((start, task.num_cores))
-      if not success:
-        self.result_queue.put((task, None))
+      self.result_queue.put((task, output_result_path))
 
   def get_cmd(self, task, result_path):
     # type: (constants.TaskConfig, str) -> str
