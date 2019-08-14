@@ -62,9 +62,18 @@ class TimerCallback(keras.callbacks.Callback):
 
     self.time_to_first_step = None
     self.first_step_time = None
+    self.data_creation_time = None
     self.compile_time = None
     self.batch_times = []
     self.epoch_times = []
+
+  @contextlib.contextmanager
+  def time_data_creation(self):
+    start_time = timeit.default_timer()
+    try:
+      yield
+    finally:
+      self.data_creation_time = timeit.default_timer() - start_time
 
   @contextlib.contextmanager
   def time_compile(self):
@@ -96,6 +105,7 @@ class TimerCallback(keras.callbacks.Callback):
   def summarize(self):
     return {
         "model_creation_time": self.time_to_first_step,
+        "data_creation_time": self.data_creation_time,
         "compile_time": self.compile_time,
         "startup_time": self.first_step_time,
         "batch_times": self.batch_times,
@@ -168,16 +178,17 @@ def maybe_check_gpu_present():
 def run_model(model_fn, input_fn):
   # Hey, this looks suspiciously like an Estimator!
 
-  # Don't time setup.
-  # Don't clear session since this is expected to start in a new process.
-  data = input_fn()
-
   timer = TimerCallback()
+
+  with timer.time_data_creation():
+    data = input_fn()
+
   maybe_check_gpu_present()
   model = model_fn()
 
-  model.compile('rmsprop', 'binary_crossentropy',
-                **json.loads(flags.FLAGS.run_mode_kwargs))
+  with timer.time_compile():
+    model.compile('rmsprop', 'binary_crossentropy',
+                  **json.loads(flags.FLAGS.run_mode_kwargs))
 
   model.fit(**data, epochs=4, callbacks=[timer], verbose=2)
 
