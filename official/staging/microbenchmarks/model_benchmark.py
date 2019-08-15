@@ -97,8 +97,9 @@ class MicroBenchmark(PerfZeroBenchmark):
     template = ("{experiment_id}, {version}, {git_version}, {name}, "
                 "{batch_size}, {num_cores}, {num_gpus}, {data_mode}, "
                 "{experimental_run_tf_function}, {misc_params}, "
-                "{model_creation_time}, {compile_time}, {startup_time}, "
-                "{mean_epoch_time}, {end_to_end_time}, {mean_batch_time}\n")
+                "{model_creation_time}, {data_creation_time}, {compile_time}, "
+                "{startup_time}, {mean_epoch_time}, {end_to_end_time}, "
+                "{framework_measured_end_to_end}, {mean_batch_time}\n")
 
     result_file = os.path.join(self.output_dir, "results.csv")
     with open(result_file, "wt") as f:
@@ -116,10 +117,12 @@ class MicroBenchmark(PerfZeroBenchmark):
           experimental_run_tf_function=task.experimental_run_tf_function,
           misc_params=task.misc_params,
           model_creation_time=result['model_creation_time'],
+          data_creation_time=result['data_creation_time'],
           compile_time=result['compile_time'],
           startup_time=result['startup_time'],
-          mean_epoch_times=np.mean(result['epoch_times']),
+          mean_epoch_time=np.mean(result['epoch_times']),
           end_to_end_time=result['end_to_end_time'],
+          framework_measured_end_to_end=result['framework_measured_end_to_end'],
           mean_batch_time=np.mean(result['batch_times']),
         )
         f.write(line)
@@ -127,6 +130,32 @@ class MicroBenchmark(PerfZeroBenchmark):
     print("Results written to {}".format(result_file))
 
     self.report_benchmark(iters=-1, wall_time=wall_time)
+
+  def _run_detailed_task(self, name):
+    """Perform a detailed characterization of a single model."""
+    tasks = []
+
+    for data_mode, batch_size, experimental_run_tf_function in it.product(
+        [constants.NUMPY, constants.DATASET, constants.DATASET_WITH_PREFETCH, constants.FROM_TENSOR_SLICES, constants.FROM_TENSOR_SLICES_WITH_PREFETCH],
+        [32, 128, 512],  # TODO(robieta): run full [32, 64, 128, 256, 512]
+        schedule_base.RUN_MODE_STR.keys()):
+
+      # CPU benchmarks.
+      for num_cores in [2, 4, 8]:
+        tasks.append(constants.TaskConfig(
+            name=name, num_cores=num_cores, num_gpus=0,
+            batch_size=batch_size, data_mode=data_mode,
+            experimental_run_tf_function=experimental_run_tf_function)
+        )
+
+      # GPU benchmark.
+      tasks.append(constants.TaskConfig(
+          name=name, num_cores=4, num_gpus=1,
+          batch_size=batch_size, data_mode=data_mode,
+          experimental_run_tf_function=experimental_run_tf_function)
+      )
+
+    self._run_and_report_benchmark(tasks, TaskRunner(), repeats=10)
 
   def _run_task(self, name):
     """Perform a detailed characterization of a single model."""
@@ -185,6 +214,14 @@ class MicroBenchmark(PerfZeroBenchmark):
   @preserve_name
   def run_lstm(self):
     self._run_task("LSTM")
+
+  @preserve_name
+  def run_detailed_mlp(self):
+    self._run_detailed_task("MLP")
+
+  @preserve_name
+  def run_detailed_logreg(self):
+    self._run_detailed_task("LOGREG")
 
   @preserve_name
   def debug_test(self):

@@ -66,6 +66,12 @@ else:
   RUN_MODE_STR = {False: "{}"}
 
 
+if tf_date in ("20190711", "20190712", "20190713", "20190714", "20190715"):
+  print("Downgrading estimator")
+  print(subprocess.check_output(["pip", "install", "tf-estimator-nightly==1.14.0.dev2019071001"]))
+  sys.stdout.flush()
+
+
 class BaseScheduler(object):
   """Simple class for pinning benchmarks to CPU cores.
 
@@ -187,13 +193,15 @@ class Runner(object):
 
   def collect_results(self, results):
     output = []
-    for task, result_path in results:
+    for task, result_path, framework_time in results:
       if result_path is None:
         print("skipping failed run.")
         continue
 
       with open(result_path, "rt") as f:
-        output.append((task, json.load(f)))
+        result_dict = json.load(f)
+        result_dict["framework_measured_end_to_end"] = framework_time
+        output.append((task, result_dict))
     return output
 
   def task_iter(self, task_list):
@@ -237,12 +245,15 @@ class Runner(object):
         .format(cuda_devices, MODELS_PATH, start, start + task.num_cores,
                 self.get_cmd(task, result_path)))
 
+    run_time = -1
     try:
       # TODO(robieta): store output.
+      start_time = timeit.default_timer()
       result = subprocess.check_output(
           cmd, stderr=subprocess.STDOUT, shell=True,
           timeout=_TIMEOUT).decode("utf-8")  # type: str
 
+      run_time = timeit.default_timer() - start_time
       output_result_path = result_path
 
     except subprocess.CalledProcessError as e:
@@ -250,7 +261,7 @@ class Runner(object):
 
     finally:
       self.free_queue.put((start, task.num_cores))
-      self.result_queue.put((task, output_result_path))
+      self.result_queue.put((task, output_result_path, run_time))
 
   def get_cmd(self, task, result_path):
     # type: (constants.TaskConfig, str) -> str

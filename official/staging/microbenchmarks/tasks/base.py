@@ -41,7 +41,7 @@ def define_flags():
       name='batch_size', default=32,
       help='Minibatch size for training.')
   flags.DEFINE_enum(
-      "data_mode", constants.NUMPY, [constants.NUMPY, constants.DATASET, constants.FROM_TENSOR_SLICES],
+      "data_mode", constants.NUMPY, [constants.NUMPY, constants.DATASET, constants.DATASET_WITH_PREFETCH, constants.FROM_TENSOR_SLICES, constants.FROM_TENSOR_SLICES_WITH_PREFETCH],
       "What kind of data to test. (NumPy array, Dataset, etc.)")
   flags.DEFINE_string(
       "run_mode_kwargs", default="{}",
@@ -125,8 +125,10 @@ def make_random_data(x_shapes, y_shapes, x_dtypes=None, y_dtypes=None,
   x_maxvals = x_maxvals or [1 for _ in x_shapes]
   y_maxvals = y_maxvals or [1 for _ in y_shapes]
 
+  should_prefetch = data_mode in (constants.DATASET_WITH_PREFETCH,
+                                  constants.FROM_TENSOR_SLICES_WITH_PREFETCH)
   AUTOTUNE = tf.data.experimental.AUTOTUNE
-  if data_mode in (constants.NUMPY, constants.FROM_TENSOR_SLICES):
+  if data_mode in (constants.NUMPY, constants.FROM_TENSOR_SLICES, constants.FROM_TENSOR_SLICES_WITH_PREFETCH):
     flat_dtypes = [i.as_numpy_dtype() for i in x_dtypes + y_dtypes]
     data = tuple(
         np.random.uniform(
@@ -142,13 +144,15 @@ def make_random_data(x_shapes, y_shapes, x_dtypes=None, y_dtypes=None,
       }
     else:
       # Make NumPy data then read into Dataset.
-      x = {"x": tf.data.Dataset.from_tensor_slices((
+      dataset = tf.data.Dataset.from_tensor_slices((
           data[:len(x_shapes)],
           data[len(x_shapes):],
-      )).batch(batch_size).prefetch(AUTOTUNE)}
-      return x
+      )).batch(batch_size)
+      if should_prefetch:
+        dataset = dataset.prefetch(AUTOTUNE)
+    return {"x": dataset}
 
-  elif data_mode == constants.DATASET:
+  elif data_mode in (constants.DATASET, constants.DATASET_WITH_PREFETCH):
     def map_fn(_):
       x = tuple(tf.random.uniform(shape=shape, dtype=dtype, maxval=maxval)
                 for shape, dtype, maxval in zip(x_shapes, x_dtypes, x_maxvals))
@@ -157,8 +161,10 @@ def make_random_data(x_shapes, y_shapes, x_dtypes=None, y_dtypes=None,
       return x, y
 
     dataset = tf.data.Dataset.range(num_examples)
-    dataset = dataset.map(map_fn, num_parallel_calls=AUTOTUNE)
-    return {"x": dataset.batch(batch_size).prefetch(AUTOTUNE)}
+    dataset = dataset.map(map_fn, num_parallel_calls=AUTOTUNE).batch(batch_size)
+    if should_prefetch:
+      dataset = dataset.prefetch(AUTOTUNE)
+    return {"x": dataset}
 
   raise NotImplementedError("TODO(robieta)")
 

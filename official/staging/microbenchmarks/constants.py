@@ -19,7 +19,9 @@ import six
 
 NUMPY = "numpy"
 DATASET = "dataset"
+DATASET_WITH_PREFETCH="dataset_with_prefetch"
 FROM_TENSOR_SLICES = "from_tensor_slices"
+FROM_TENSOR_SLICES_WITH_PREFETCH = "from_tensor_slices_with_prefetch"
 
 # TODO(robieta):
 # GENERATOR = "generator"
