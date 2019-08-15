@@ -52,13 +52,13 @@ if tf.__version__.startswith("2"):
     RUN_MODE_STR = {False: "{}"}
   elif tf_date >= "20190730":
     RUN_MODE_STR = {
-      False: "{}",
-      True: json.dumps({"experimental_run_tf_function": True})
+      False: json.dumps({"experimental_run_tf_function": False}),
+      True: json.dumps({"experimental_run_tf_function": True}),
     }
   elif tf_date >= "20190712":
     RUN_MODE_STR = {
-      False: "{}",
-      True: json.dumps({"run_distributed": True})
+      False: json.dumps({"run_distributed": False}),
+      True: json.dumps({"run_distributed": True}),
     }
   else:
     RUN_MODE_STR = {False: "{}"}
