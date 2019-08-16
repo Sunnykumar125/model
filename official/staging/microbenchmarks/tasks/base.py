@@ -200,7 +200,11 @@ def run_model(model_fn, input_fn):
 
   results = timer.summarize()
   if flags.FLAGS.result_path is None:
-    print(results)
+    # Reduce screen clutter.
+    results["mean_batch_time"] = np.mean(results["batch_times"])
+    results.pop("batch_times")
+    for k, v in results.items():
+      print("{:<30} {}".format(k, v))
   else:
     with open(flags.FLAGS.result_path, "wt") as f:
       json.dump(results, f)
