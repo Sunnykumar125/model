@@ -98,7 +98,7 @@ class MicroBenchmark(PerfZeroBenchmark):
                 "{batch_size}, {num_cores}, {num_gpus}, {data_mode}, "
                 "{experimental_run_tf_function}, {misc_params}, "
                 "{model_creation_time}, {data_creation_time}, {compile_time}, "
-                "{startup_time}, {mean_epoch_time}, {end_to_end_time}, "
+                "{startup_time}, {epoch_times}, {end_to_end_time}, "
                 "{framework_measured_end_to_end}, {mean_batch_time}\n")
 
     result_file = os.path.join(self.output_dir, "results.csv")
@@ -120,7 +120,7 @@ class MicroBenchmark(PerfZeroBenchmark):
           data_creation_time=result['data_creation_time'],
           compile_time=result['compile_time'],
           startup_time=result['startup_time'],
-          mean_epoch_time=np.mean(result['epoch_times']),
+          epoch_times=";".join([str(i) for i in result['epoch_times']]),
           end_to_end_time=result['end_to_end_time'],
           framework_measured_end_to_end=result['framework_measured_end_to_end'],
           mean_batch_time=np.mean(result['batch_times']),
@@ -155,7 +155,7 @@ class MicroBenchmark(PerfZeroBenchmark):
           experimental_run_tf_function=experimental_run_tf_function)
       )
 
-    self._run_and_report_benchmark(tasks, TaskRunner(), repeats=10)
+    self._run_and_report_benchmark(tasks, TaskRunner(), repeats=25)
 
   def _run_task(self, name):
     """Perform a detailed characterization of a single model."""

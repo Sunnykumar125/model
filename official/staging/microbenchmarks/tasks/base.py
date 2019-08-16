@@ -200,6 +200,7 @@ def run_model(model_fn, input_fn):
 
   results = timer.summarize()
   if flags.FLAGS.result_path is None:
+    print(tf.__version__)
     # Reduce screen clutter.
     results["mean_batch_time"] = np.mean(results["batch_times"])
     results.pop("batch_times")
