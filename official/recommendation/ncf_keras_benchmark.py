@@ -322,6 +322,7 @@ class NCFKerasAccuracy(NCFKerasBenchmarkBase):
     FLAGS.num_gpus = 8
     FLAGS.train_epochs = 17
     FLAGS.batch_size = 1048576
+    FLAGS.eval_batch_size = 160000
     FLAGS.learning_rate = 0.0045
     FLAGS.beta1 = 0.25
     FLAGS.beta2 = 0.5
