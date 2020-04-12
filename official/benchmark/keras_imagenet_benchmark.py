@@ -1302,8 +1302,7 @@ class Resnet50KerasBenchmarkReal(Resnet50KerasClassifierBenchmarkBase):
   """Resnet50 real data benchmark tests."""
 
   def __init__(self, output_dir=None, root_data_dir=None, tpu=None, **kwargs):
-    data_dir = ('/readahead/200M/placer/prod/home/distbelief/'
-                'imagenet-tensorflow/imagenet-2012-tfrecord')
+    data_dir = os.path.join(root_data_dir, 'imagenet')
     def_flags = {}
     def_flags['log_steps'] = 10
 
